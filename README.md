@@ -11,8 +11,8 @@ Extracted from
 
 
 
-Usage Example
-
+# Usage Example
+```
 job_basedir = state.job_basedir 
 job_dir = '{}/{}/ECAS_11yr/T_{:17.6f}'.format (
     job_basedir, ana_name,  T)
@@ -40,3 +40,4 @@ if 'condor00' in hostname:
     sub.submit_condor00 (commands, labels)
 else:
     sub.submit_npx4 (commands, labels)
+```
