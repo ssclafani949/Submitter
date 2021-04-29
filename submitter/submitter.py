@@ -22,7 +22,7 @@ class Submitter (object):
 
     def __init__ (self,
             job_dir='jobs/', 
-            dry=False, max_jobs=None, delay=0, memory=None, ncpu=None, reqs=None,
+            dry=False, max_jobs=None, delay=0, memory=None, ncpu=None, 
             config='.bashrc_condor',
             logfile=sys.stderr):
         """Construct a Submitter."""
@@ -33,7 +33,6 @@ class Submitter (object):
         self.ncpu = ncpu
         self.delay = delay
         self.config = config
-        self.reqs = reqs
     @property
     def dry (self):
         """Whether submit should do dry runs, not actually submit jobs."""
@@ -52,15 +51,6 @@ class Submitter (object):
     def max_jobs (self, max_jobs):
         self._max_jobs = max_jobs
     
-    @property
-    def reqs (self):
-        """Additional Requirements for the jobs"""
-        return self._reqs
-    
-    @reqs.setter
-    def reqs (self, reqs):
-        self._reqs = reqs
-
     @property
     def delay (self):
         """Number of seconds to wait between submitting jobs."""
@@ -274,6 +264,7 @@ class Submitter (object):
     def submit_condor00 (self, commands, command_labels,
             username=None,
             blacklist=[],
+            reqs=None,
             max_per_interval=None,
             ):
         """Submit jobs in parallel on the condor00 Condor cluster.
@@ -368,18 +359,22 @@ class Submitter (object):
                 pr ('Output         = {}/{}.out'.format (log_dir, dag_label))
                 pr ('Error          = {}/{}.err'.format (log_dir, dag_label))
                 pr ('Notification   = NEVER')
+                print(reqs)
                 if blacklist:
-                    reqs = ' && '.join (
+                    reqs_bl = ' && '.join (
                             ['(Machine != "{0}")'.format (host)
                                 for host in blacklist])
-                    pr ('Requirements = {0}'.format (reqs))
+                    if reqs:
+                        pr('Requirements = {} && {}'.format(reqs, reqs_bl))
+                    else:    
+                        pr('Requirements = {}'.format(reqs_bl))
+                else:
+                    if reqs:
+                        pr('Requirements = {}'.format(reqs))
                 if self.memory:
                     pr ('request_memory = {0:.2f}G'.format (self.memory))
                 if self.ncpu:
                     pr ('request_cpus = {0:.0f}'.format (self.ncpu))
-                # if TEST:
-                #     pr ('+IsTestQueue   = TRUE')
-                #     pr ('requirements	= TARGET.IsTestQueue')
                 pr ('Queue')
 
             user_str = username + '@' if username else ''
