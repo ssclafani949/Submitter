@@ -21,7 +21,8 @@ class Submitter (object):
     """Submit jobs as processes."""
 
     def __init__ (self,
-            job_dir='jobs/', dry=False, max_jobs=None, delay=0, memory=None, ncpu=None,
+            job_dir='jobs/', 
+            dry=False, max_jobs=None, delay=0, memory=None, ncpu=None, reqs=None
             config='.bashrc_condor',
             logfile=sys.stderr):
         """Construct a Submitter."""
@@ -32,7 +33,7 @@ class Submitter (object):
         self.ncpu = ncpu
         self.delay = delay
         self.config = config
-
+        self.reqs = reqs
     @property
     def dry (self):
         """Whether submit should do dry runs, not actually submit jobs."""
@@ -46,6 +47,10 @@ class Submitter (object):
     def max_jobs (self):
         """The maximum number of jobs to process at once."""
         return self._max_jobs
+    @property
+    def reqs (self):
+        """Additional Requirements for the jobs"""
+        return self._reqs
 
     @max_jobs.setter
     def max_jobs (self, max_jobs):
@@ -283,6 +288,7 @@ class Submitter (object):
             raise ValueError (
                 '`command_labels` must not include duplicate labels')
         job_dir = os.path.realpath (ensure_dir (self.job_dir))
+        log_dir = ensure_dir(os.path.join(job_dir, 'logs') )
         if isinstance (commands, str):
             commands = [commands]
         if isinstance (command_labels, str):
@@ -347,9 +353,9 @@ class Submitter (object):
 
                 pr ('Universe       = vanilla')
                 pr ('Executable     = {0}'.format (script_filename))
-                pr ('Log            = {0}.log'.format (script_filename))
-                pr ('Output         = {0}.out'.format (script_filename))
-                pr ('Error          = {0}.err'.format (script_filename))
+                pr ('Log            = {}/{}.log'.format (log_dir, dag_label))
+                pr ('Output         = {}/{}.out'.format (log_dir, dag_label))
+                pr ('Error          = {}/{}.err'.format (log_dir, dag_label))
                 pr ('Notification   = NEVER')
                 if blacklist:
                     reqs = ' && '.join (
