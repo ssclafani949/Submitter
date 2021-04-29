@@ -47,14 +47,19 @@ class Submitter (object):
     def max_jobs (self):
         """The maximum number of jobs to process at once."""
         return self._max_jobs
-    @property
-    def reqs (self):
-        """Additional Requirements for the jobs"""
-        return self._reqs
 
     @max_jobs.setter
     def max_jobs (self, max_jobs):
         self._max_jobs = max_jobs
+    
+    @property
+    def reqs (self):
+        """Additional Requirements for the jobs"""
+        return self._reqs
+    
+    @reqs.setter
+    def reqs (self, reqs):
+        self._reqs = reqs
 
     @property
     def delay (self):
@@ -316,8 +321,14 @@ class Submitter (object):
                     max_per_interval)
 
         for n, (command, label) in enumerate (zip (commands, command_labels)):
+            dag_label = 'npx4_{0}.sh'.format (label)
+            dag_label = re.sub (r'\.', '_dot_', dag_label)
+            dag_label = re.sub (r'\+', '_plus_', dag_label)
+            dag_label = re.sub (r'-', '_minus_', dag_label)
             script_filename = os.path.realpath (os.path.join (
-                    job_dir, 'condor00_{0}.sh'.format (label)))
+                    log_dir, dag_label))
+            #script_filename = os.path.realpath (os.path.join (
+            #        job_dir, 'condor00_{0}.sh'.format (label)))
             with open (script_filename, 'w') as script:
                 def pr (*args, **kwargs):
                     print (*args, file=script, **kwargs)
