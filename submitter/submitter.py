@@ -22,7 +22,7 @@ class Submitter (object):
 
     def __init__ (self,
             job_dir='jobs/', 
-            dry=False, max_jobs=None, delay=0, memory=None, ncpu=None, reqs=None
+            dry=False, max_jobs=None, delay=0, memory=None, ncpu=None, reqs=None,
             config='.bashrc_condor',
             logfile=sys.stderr):
         """Construct a Submitter."""
