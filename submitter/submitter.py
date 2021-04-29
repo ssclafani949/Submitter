@@ -359,7 +359,6 @@ class Submitter (object):
                 pr ('Output         = {}/{}.out'.format (log_dir, dag_label))
                 pr ('Error          = {}/{}.err'.format (log_dir, dag_label))
                 pr ('Notification   = NEVER')
-                print(reqs)
                 if blacklist:
                     reqs_bl = ' && '.join (
                             ['(Machine != "{0}")'.format (host)
@@ -412,7 +411,7 @@ class Submitter (object):
             self.log (condor00_command)
 
     def submit_npx4 (self, commands, command_labels,
-                     username=None,
+                     username=None, reqs=None,
                      blacklist=[]):
         """Submit jobs in parallel on the npx4 Condor cluster.
 
@@ -501,17 +500,20 @@ class Submitter (object):
                     #pr ('when_to_transfer_output = ON_EXIT')
                     pr ('stream_output = True')
                 if blacklist:
-                    reqs = ' && '.join (
+                    reqs_bl = ' && '.join (
                             ['(Machine != "{0}")'.format (host)
                                 for host in blacklist])
-                    pr ('Requirements = {0}'.format (reqs))
+                    if reqs:
+                        pr('Requirements = {} && {}'.format(reqs, reqs_bl))
+                    else:    
+                        pr('Requirements = {}'.format(reqs_bl))
+                else:
+                    if reqs:
+                        pr('Requirements = {}'.format(reqs))
                 if self.memory:
                     pr ('request_memory = {0:.2f}G'.format (self.memory))
                 if self.ncpu:
                     pr ('request_cpus = {0:.0f}'.format (self.ncpu))
-                # if TEST:
-                #     pr ('+IsTestQueue   = TRUE')
-                #     pr ('requirements	= TARGET.IsTestQueue')
                 pr ('Queue')
 
             user_str = username + '@' if username else ''
@@ -557,6 +559,7 @@ class Submitter (object):
 
     def submit_osg (self, commands, command_labels,
                     transfers='',
+                    reqs = None,
                     username=None,
                     userid=None):
         """Submit jobs in parallel on the OSG Condor cluster.
@@ -651,14 +654,24 @@ class Submitter (object):
                 pr ('Notification   = never')
                 pr ('+WantRHEL6     = True')
                 pr ('+WantGlideIn   = True')
-                pr ('Requirements   = ( Arch == "X86_64" ) &&               \\')
-                pr ('                 ( TARGET.OpSys == "LINUX" ) &&        \\')
-                pr ('                 ( OASIS_CVMFS_Exists =?= True ||      \\')
-                pr ('                       (IS_GLIDEIN && HasParrotCVMFS   \\')
-                pr ('                       && GLIDEIN_Site != "UNESP"      \\')
-                pr ('                       && GLIDEIN_Site != "UConn"      \\')
-                pr ('                       && GLIDEIN_Site != "Cornell"    \\')
-                pr ('                 ))')
+                default_reqs = ( 
+                    '( Arch == "X86_64" ) && ( TARGET.OpSys == "LINUX" ) && ' +
+                    '( OASIS_CVMFS_Exists =?= True || (IS_GLIDEIN && HasParrotCVMFS   ' +
+                    ' && GLIDEIN_Site != "UNESP"      ' +
+                    ' && GLIDEIN_Site != "UConn"      ' +
+                    ' && GLIDEIN_Site != "Cornell"    ' )
+                if reqs:
+                    pr('Requirements = {} && {}'.format(reqs, default_reqs))
+                else:
+                    #TODO: check if the requirements below are still relavant?  
+                    pr ('Requirements   = ( Arch == "X86_64" ) &&               \\')
+                    pr ('                 ( TARGET.OpSys == "LINUX" ) &&        \\')
+                    pr ('                 ( OASIS_CVMFS_Exists =?= True ||      \\')
+                    pr ('                       (IS_GLIDEIN && HasParrotCVMFS   \\')
+                    pr ('                       && GLIDEIN_Site != "UNESP"      \\')
+                    pr ('                       && GLIDEIN_Site != "UConn"      \\')
+                    pr ('                       && GLIDEIN_Site != "Cornell"    \\')
+                    pr ('                 ))')
                 if self.memory:
                     pr ('request_memory = {0:.2f}G'.format (self.memory))
                 # if TEST:
