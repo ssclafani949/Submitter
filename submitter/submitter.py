@@ -721,6 +721,151 @@ class Submitter (object):
         kw['file'] = sys.stderr
         print (*a, **kw)
 
+    def submit_illume (self, commands, command_labels,
+            username=None,
+            blacklist=[],
+            reqs=None,
+            gpus=None,
+            singularity=None,
+            max_per_interval=None,
+            ):
+        """Submit jobs in parallel on illume Condor cluster.
+
+
+        `commands`: a sequence of commands, or a single command.
+        `command_labels`: a sequence of command labels, or a single one.
+        `username`: the username in use on condor00.
+        `blacklist`: a list of hosts to avoid
+        """
+        if len (commands) == 0:
+            print ('warning: no jobs')
+            return
+        if len (set (command_labels)) != len (command_labels):
+            raise ValueError (
+                '`command_labels` must not include duplicate labels')
+        job_dir = os.path.realpath (ensure_dir (self.job_dir))
+        log_dir = ensure_dir(os.path.join(job_dir, 'logs') )
+        if isinstance (commands, str):
+            commands = [commands]
+        if isinstance (command_labels, str):
+            command_labels = [command_labels]
+        n_total = len (commands)
+        length = len (str (n_total))
+
+        subdag_filename = os.path.realpath ((os.path.join (
+                job_dir, 'illume_submit.dag')))
+        subdag_config_filename = os.path.realpath ((os.path.join (
+                job_dir, 'illume_submit.dag.config')))
+        subdag = open (subdag_filename, 'w')
+        subdag_config = open (subdag_config_filename, 'w')
+
+        def spr_dag (*args, **kwargs):
+            print (*args, file=subdag, **kwargs)
+
+        def spr_dag_config (*args, **kwargs):
+            print (*args, file=subdag_config, **kwargs)
+
+        spr_dag ('CONFIG {0}'.format (subdag_config_filename))
+        if max_per_interval:
+            spr_dag_config (
+                    'DAGMAN_MAX_SUBMITS_PER_INTERVAL =',
+                    max_per_interval)
+
+        for n, (command, label) in enumerate (zip (commands, command_labels)):
+            dag_label = 'npx4_{0}.sh'.format (label)
+            dag_label = re.sub (r'\.', '_dot_', dag_label)
+            dag_label = re.sub (r'\+', '_plus_', dag_label)
+            dag_label = re.sub (r'-', '_minus_', dag_label)
+            script_filename = os.path.realpath (os.path.join (
+                    log_dir, dag_label))
+            #script_filename = os.path.realpath (os.path.join (
+            #        job_dir, 'condor00_{0}.sh'.format (label)))
+            with open (script_filename, 'w') as script:
+                def pr (*args, **kwargs):
+                    print (*args, file=script, **kwargs)
+
+                pr ('#!/bin/sh')
+                pr ('#$ -S /bin/sh')
+                pr ()
+                pr ('')
+                pr ()
+                pr ('. {0}/{1}'.format (os.getenv ('HOME'), self.config))
+                pr ()
+                pr ('hostname')
+                pr ()
+                pr ('before=`date +%s`')
+                pr ('echo Begin: `date`.')
+                pr ('echo')
+                pr ()
+                pr (command)
+                pr ('result=$?')
+                pr ()
+                pr ('echo')
+                pr ('after=`date +%s`')
+                pr ('echo End: `date`.')
+                pr ()
+                pr ('exit $result')
+
+            os.chmod (script_filename, 0o775)
+
+            tosubsub_filename = script_filename + '.sub'
+            with open (tosubsub_filename, 'w') as tosubsub:
+                def pr (*args, **kwargs):
+                    print (*args, file=tosubsub, **kwargs)
+
+                pr ('Universe       = vanilla')
+                pr ('Executable     = {0}'.format (script_filename))
+                pr ('Log            = {}/{}.log'.format (log_dir, dag_label))
+                pr ('Output         = {}/{}.out'.format (log_dir, dag_label))
+                pr ('Error          = {}/{}.err'.format (log_dir, dag_label))
+                if singularity:
+                    pr ('+SingularityImage = "{}"'.format(singularity))
+                    pr ('requirements = HasSingularity')
+                if gpus:
+                    pr ('request_gpus = 1')
+                pr ('Notification   = NEVER')
+
+                if blacklist:
+                    reqs_bl = ' && '.join (
+                            ['(Machine != "{0}")'.format (host)
+                                for host in blacklist])
+                    if reqs:
+                        pr('Requirements = {} && {}'.format(reqs, reqs_bl))
+                    else:    
+                        pr('Requirements = {}'.format(reqs_bl))
+                else:
+                    if reqs:
+                        pr('Requirements = {}'.format(reqs))
+                if self.memory:
+                    pr ('request_memory = {0:.2f}GB'.format (self.memory))
+                if self.ncpu:
+                    pr ('request_cpus = {0:.0f}'.format (self.ncpu))
+                else:
+                    pr ('request_cpus = 1')
+                pr ('Queue')
+
+            user_str = username + '@' if username else ''
+            dag_command = 'JOB {0} {1}'.format (
+                os.path.basename (script_filename), tosubsub_filename)
+            spr_dag (dag_command)
+
+        subdag.close ()
+        subdag_config.close ()
+        hostname = socket.gethostname ()
+
+        if 'illume' in hostname:
+            if self.max_jobs:
+                condor00_command = 'condor_submit_dag -maxjobs {0} {1}'.format (
+                    self.max_jobs, os.path.realpath (subdag_filename))
+            else:
+                condor00_command = 'condor_submit_dag {0}'.format (
+                    os.path.realpath (subdag_filename))
+        if not self.dry:
+            print ('Submitting {} jobs\nfrom {} .'.format (n_total, job_dir))
+            os.system (condor00_command)
+        else:
+            print ('Prepared {} jobs\n in {} .'.format (n_total, job_dir))
+            self.log (condor00_command)
 class Spinner (object):
 
     """Create a simple spinning progress indicator."""
@@ -834,5 +979,6 @@ def on_cobol (submitter, func, *args, **kwargs):
 
     submitter.submit_cobol00 ([command], [command_label])
     return out_filename
+    
 
 
