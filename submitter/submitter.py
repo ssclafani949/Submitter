@@ -412,7 +412,7 @@ class Submitter (object):
 
     def submit_npx4 (self, commands, command_labels,
                      username=None, reqs=None,
-                     blacklist=[]):
+                     blacklist=[], gpus = None):
         """Submit jobs in parallel on the npx4 Condor cluster.
 
         This method logs into pub.icecube.wisc.edu, then into npx4.  There, it
@@ -510,6 +510,9 @@ class Submitter (object):
                 else:
                     if reqs:
                         pr('Requirements = {}'.format(reqs))
+                if gpus:
+                    pr ('request_gpus = 1')
+
                 if self.memory:
                     pr ('request_memory = {0:.2f}G'.format (self.memory))
                 if self.ncpu:
