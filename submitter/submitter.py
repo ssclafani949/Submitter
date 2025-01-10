@@ -385,7 +385,7 @@ class Submitter (object):
         subdag_config.close ()
         hostname = socket.gethostname ()
 
-        if 'condor00' in hostname:
+        if 'condor' in hostname:
             if self.max_jobs:
                 condor00_command = 'condor_submit_dag -maxjobs {0} {1}'.format (
                     self.max_jobs, os.path.realpath (subdag_filename))
